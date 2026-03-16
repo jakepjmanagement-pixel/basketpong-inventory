@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BasketPong — Inventory Forecast</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8f7f4;--bg2:#ffffff;--bg3:#edecea;--bg4:#e4e2de;
+  --text:#1c1b18;--text2:#6b6963;--text3:#a09d97;
+  --border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.15);
+  --green:#1a9268;--green-bg:#e2f4ed;--green-text:#0a5c40;
+  --amber:#d4860f;--amber-bg:#fef3dc;--amber-text:#7a4d08;
+  --red:#c94040;--red-bg:#fceaea;--red-text:#7a1f1f;
+  --blue:#2d6fbf;--blue-bg:#e8f0fb;--blue-text:#1a4580;
+  --r:8px;--rlg:14px;
+  --mono:'Courier New',monospace;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#181714;--bg2:#222018;--bg3:#2a2824;--bg4:#32302b;
+  --text:#f0ede6;--text2:#9c9890;--text3:#5c5a54;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.15);
+  --green:#2ab87e;--green-bg:#0a3d28;--green-text:#6ddbb0;
+  --amber:#e8a020;--amber-bg:#3d2800;--amber-text:#f5c56a;
+  --red:#e05555;--red-bg:#3d1010;--red-text:#f09090;
+  --blue:#5590e0;--blue-bg:#0d2545;--blue-text:#90b8f0;
+}}
+body{font-family:-apple-system,'Helvetica Neue',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh}
+.app{max-width:1020px;margin:0 auto;padding:28px 20px 80px}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;gap:16px;flex-wrap:wrap}
+.topbar h1{font-size:20px;font-weight:600;letter-spacing:-.3px}
+.topbar .sub{font-size:12px;color:var(--text3);margin-top:3px;font-family:var(--mono)}
+.data-pill{font-size:11px;padding:5px 12px;border-radius:20px;border:0.5px solid var(--border2);background:var(--bg2);color:var(--text2);font-family:var(--mono);white-space:nowrap}
+.data-pill.live{border-color:var(--green);color:var(--green-text);background:var(--green-bg)}
+.alert-strip{border-radius:var(--r);padding:11px 16px;margin-bottom:12px;font-size:13px;font-weight:500}
+.alert-strip.danger{background:var(--red-bg);color:var(--red-text);border:0.5px solid var(--red)}
+.alert-strip.warn{background:var(--amber-bg);color:var(--amber-text);border:0.5px solid var(--amber)}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;margin-bottom:24px}
+.metric{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--rlg);padding:14px 16px}
+.metric .lbl{font-size:10px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.metric .val{font-size:24px;font-weight:700;font-family:var(--mono);letter-spacing:-1px}
+.metric .hint{font-size:11px;color:var(--text3);margin-top:3px}
+.tabs{display:flex;gap:2px;margin-bottom:20px;border-bottom:1px solid var(--border)}
+.tabs button{background:none;border:none;font-size:13px;color:var(--text2);cursor:pointer;padding:8px 16px;border-radius:var(--r) var(--r) 0 0;font-family:inherit;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.tabs button.active{color:var(--text);font-weight:500;border-bottom-color:var(--text)}
+.tabs button:hover:not(.active){color:var(--text);background:var(--bg3)}
+.section{display:none}.section.active{display:block}
+.sku-grid{display:flex;flex-direction:column;gap:14px}
+.sku-card{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--rlg);overflow:hidden}
+.sku-card.s-danger{border-top:3px solid var(--red)}.sku-card.s-warn{border-top:3px solid var(--amber)}
+.sku-card.s-ok{border-top:3px solid var(--green)}.sku-card.s-nodata{border-top:3px solid var(--text3)}
+.sku-body{padding:18px 20px}
+.sku-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:12px}
+.sku-name{font-size:15px;font-weight:600}
+.sku-code{font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:3px}
+.badge{font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;white-space:nowrap}
+.badge.ok{background:var(--green-bg);color:var(--green-text)}
+.badge.warn{background:var(--amber-bg);color:var(--amber-text)}
+.badge.danger{background:var(--red-bg);color:var(--red-text)}
+.badge.nodata{background:var(--bg3);color:var(--text2)}
+.badge.info{background:var(--blue-bg);color:var(--blue-text)}
+.stat-row{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:16px}
+@media(max-width:600px){.stat-row{grid-template-columns:repeat(4,1fr)}}
+.stat{background:var(--bg3);border-radius:var(--r);padding:10px 8px;text-align:center}
+.stat .sv{font-size:16px;font-weight:700;font-family:var(--mono)}
+.stat .sl{font-size:10px;color:var(--text2);margin-top:3px;text-transform:uppercase;letter-spacing:.3px}
+.chart-section{margin-bottom:16px}
+.chart-label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.legend{display:flex;gap:12px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.month-bars{display:flex;align-items:flex-end;gap:2px;height:90px}
+.month-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.bar-wrap{flex:1;display:flex;align-items:flex-end;width:100%}
+.bar{width:100%;border-radius:3px 3px 0 0;min-height:2px}
+.bar.hist{background:var(--bg4)}.bar.proj{background:var(--blue);opacity:.75}.bar.curr{background:var(--amber)}
+.mlbl{font-size:8px;color:var(--text3);font-family:var(--mono);text-align:center;overflow:hidden;width:100%}
+.proj-box{background:var(--bg3);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.proj-text{font-size:13px;line-height:1.6}
+.proj-text strong{font-weight:600}
+.proj-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.btn{font-size:12px;padding:7px 14px;border-radius:var(--r);border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);cursor:pointer;font-family:inherit;font-weight:500;white-space:nowrap;transition:background .15s}
+.btn:hover{background:var(--bg3)}
+.btn.primary{background:var(--text);color:var(--bg);border-color:transparent}
+.btn.primary:hover{opacity:.85}
+.import-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+@media(max-width:560px){.import-grid{grid-template-columns:1fr}}
+.drop-zone{background:var(--bg2);border:1.5px dashed var(--border2);border-radius:var(--rlg);padding:30px 20px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--blue);background:var(--blue-bg)}
+.drop-zone.loaded{border-style:solid;border-color:var(--green);background:var(--green-bg)}
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop-icon{font-size:28px;margin-bottom:10px}
+.drop-title{font-size:14px;font-weight:600;margin-bottom:4px}
+.drop-sub{font-size:12px;color:var(--text2);margin-bottom:5px}
+.drop-hint{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.drop-status{font-size:12px;font-weight:600;color:var(--green-text);margin-top:8px}
+.instr{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--rlg);padding:20px;margin-bottom:16px}
+.instr h3{font-size:13px;font-weight:600;margin-bottom:14px}
+.step{display:flex;gap:12px;margin-bottom:12px;font-size:13px}
+.step-n{width:22px;height:22px;border-radius:50%;background:var(--blue-bg);color:var(--blue-text);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.step-t{color:var(--text2);line-height:1.6}.step-t strong{color:var(--text);font-weight:600}
+code{background:var(--bg3);padding:1px 6px;border-radius:4px;font-size:12px;font-family:var(--mono)}
+.card{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--rlg);overflow:hidden;margin-bottom:16px}
+.card-hdr{padding:13px 18px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg3)}
+.card-title{font-size:14px;font-weight:600}
+table.dt{width:100%;border-collapse:collapse;font-size:13px}
+table.dt th{text-align:left;padding:9px 14px;font-size:10px;font-weight:600;color:var(--text2);border-bottom:0.5px solid var(--border);text-transform:uppercase;letter-spacing:.4px}
+table.dt td{padding:11px 14px;border-bottom:0.5px solid var(--border);color:var(--text)}
+table.dt tr:last-child td{border-bottom:none}
+table.dt tr:hover td{background:var(--bg3)}
+.po-form{padding:16px 18px;background:var(--bg3);border-top:0.5px solid var(--border)}
+.po-form h4{font-size:10px;font-weight:600;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.4px}
+.form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:10px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:11px;color:var(--text2);font-weight:500}
+.form-group input,.form-group select{font-size:13px;padding:7px 10px;border-radius:var(--r);border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);font-family:inherit}
+.manual-table{width:100%;border-collapse:collapse;font-size:12px}
+.manual-table th{text-align:left;padding:8px 12px;font-size:10px;font-weight:600;color:var(--text2);border-bottom:0.5px solid var(--border);text-transform:uppercase;letter-spacing:.4px;background:var(--bg3)}
+.manual-table td{padding:7px 12px;border-bottom:0.5px solid var(--border);vertical-align:middle}
+.manual-table tr:last-child td{border-bottom:none}
+.manual-table input{width:72px;padding:4px 7px;border-radius:var(--r);border:0.5px solid var(--border2);background:var(--bg3);color:var(--text);font-family:var(--mono);font-size:12px;text-align:right}
+.cf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px}
+.cf-card{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--rlg);padding:16px}
+.cf-mo{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;font-family:var(--mono)}
+.cf-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:11px}
+.cf-lbl{width:60px;color:var(--text2);flex-shrink:0}
+.cf-bar-wrap{flex:1;height:20px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.cf-fill{height:100%;border-radius:3px;display:flex;align-items:center;padding-left:6px;font-size:10px;font-weight:600;white-space:nowrap;font-family:var(--mono)}
+.cf-fill.rev{background:var(--green);color:var(--green-bg)}
+.cf-fill.po{background:#b06040;color:#fff5f0}
+.cf-net{text-align:right;font-size:12px;font-weight:700;margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border);font-family:var(--mono)}
+.set-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:580px){.set-grid{grid-template-columns:1fr}}
+.set-card{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--rlg);padding:16px 18px}
+.set-card h3{font-size:13px;font-weight:600;margin-bottom:14px}
+.set-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;gap:10px}
+.set-row label{font-size:12px;color:var(--text2)}
+.set-row input[type=number]{width:85px;text-align:right;padding:6px 8px;border-radius:var(--r);border:0.5px solid var(--border2);background:var(--bg3);color:var(--text);font-family:var(--mono);font-size:13px}
+.sku-set{margin-bottom:14px;padding-bottom:14px;border-bottom:0.5px solid var(--border)}
+.sku-set:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none}
+.sku-set-name{font-size:13px;font-weight:600;margin-bottom:8px}
+.sku-set-r{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.sku-set-r label{font-size:11px;color:var(--text2);min-width:95px}
+.sku-set-r input{padding:5px 8px;border-radius:var(--r);border:0.5px solid var(--border2);background:var(--bg3);color:var(--text);font-family:var(--mono);font-size:12px}
+.note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="topbar">
+  <div>
+    <h1>BasketPong — Inventory Forecast</h1>
+    <div class="sub">PJ Distributors · NJ + China warehouses</div>
+  </div>
+  <div id="data-pill" class="data-pill live">Amazon: Jan 2024–Dec 2025 loaded · Add Shopify</div>
+</div>
+<div id="alerts"></div>
+<div class="metrics" id="metrics"></div>
+<div class="tabs">
+  <button class="active" onclick="showTab('forecast',this)">Seasonal forecast</button>
+  <button onclick="showTab('import',this)">Import data</button>
+  <button onclick="showTab('pos',this)">Purchase orders</button>
+  <button onclick="showTab('cashflow',this)">Cash flow</button>
+  <button onclick="showTab('settings',this)">Settings</button>
+</div>
+<div id="forecast" class="section active"></div>
+<div id="import" class="section"></div>
+<div id="pos" class="section"></div>
+<div id="cashflow" class="section"></div>
+<div id="settings" class="section"></div>
+</div>
+
+<script>
+// CONFIG
+const CFG={leadDays:60,chinaLeadDays:30,safetyDays:21,targetCoverDays:150,yoyOverride:null};
+
+// SKU MASTER — 4-stage supply pipeline + channel split
+// onHand=NJ wh · fbaStock=Amazon FBA · onOrder=PO placed · chinaWH=China stored · boatToNJ=on boat→NJ · boatToFBA=on boat→FBA direct
+// channelSplit = fraction of demand that goes through Amazon FBA (vs Shopify/DTC)
+// SKU_DEFAULTS — used by reset button, kept in sync with SKUS initial values
+const SKU_DEFAULTS=[
+  {id:'bp01',    onHand:1640,fbaStock:404, fbaInbound:1454,chinaWH:1431,boatToNJ:750, boatToNJeta:'2026-03-31',boatToFBA:0,boatToFBAeta:'',channelSplit:0.70,cogs:18.50},
+  {id:'bp05',    onHand:33,  fbaStock:70,  fbaInbound:100, chinaWH:0,   boatToNJ:1000,boatToNJeta:'2026-03-22',boatToFBA:0,boatToFBAeta:'',channelSplit:0.85,cogs:14.00},
+  {id:'bp02',    onHand:3489,fbaStock:88,  fbaInbound:100, chinaWH:1432,boatToNJ:0,   boatToNJeta:'',          boatToFBA:0,boatToFBAeta:'',channelSplit:0.40,cogs:20.00},
+  {id:'bp06',    onHand:533, fbaStock:31,  fbaInbound:0,   chinaWH:0,   boatToNJ:0,   boatToNJeta:'',          boatToFBA:0,boatToFBAeta:'',channelSplit:0.60,cogs:20.00},
+  {id:'battle',  onHand:300, fbaStock:267, fbaInbound:0,   chinaWH:814, boatToNJ:0,   boatToNJeta:'',          boatToFBA:0,boatToFBAeta:'',channelSplit:1.00,cogs:18.50},
+  {id:'yardpong',onHand:0,   fbaStock:386, fbaInbound:330, chinaWH:400, boatToNJ:0,   boatToNJeta:'',          boatToFBA:0,boatToFBAeta:'',channelSplit:1.00,cogs:18.50},
+];
+
+let SKUS=[
+  {id:'bp01',    name:'BasketPong\u00ae',        code:'BP01',asin:'B08QFNT5YM',cogs:18.50,price:59.99,
+   onHand:1640,  fbaStock:404,  fbaInbound:1454, onOrder:0, chinaWH:1431, boatToNJ:750,boatToNJeta:'2026-03-31',boatToFBA:0,boatToFBAeta:'',
+   amazonOnly:false, channelSplit:0.70},
+  {id:'bp05',    name:'BasketPong\u00ae Mini',   code:'BP05',asin:'B0DZ9WXBQM',cogs:14.00,price:44.99,
+   onHand:33,    fbaStock:70,   fbaInbound:100,  onOrder:0, chinaWH:0,    boatToNJ:1000,boatToNJeta:'2026-03-22',boatToFBA:0,boatToFBAeta:'',
+   amazonOnly:false, channelSplit:0.85},
+  {id:'bp02',    name:'BasketPong\u00ae H2O',    code:'BP02',asin:'B0DLYV7P2C',cogs:20.00,price:64.99,
+   onHand:3489,  fbaStock:88,   fbaInbound:100,  onOrder:0, chinaWH:1432, boatToNJ:0,boatToNJeta:'',boatToFBA:0,boatToFBAeta:'',
+   amazonOnly:false, shopifyDemand:true, channelSplit:0.40},
+  {id:'bp06',    name:'BasketPong\u00ae H2O USA',code:'BP06',asin:'B0DLYN1TW5',cogs:20.00,price:64.99,
+   onHand:533,   fbaStock:31,   fbaInbound:0,    onOrder:0, chinaWH:0,    boatToNJ:0,boatToNJeta:'',boatToFBA:0,boatToFBAeta:'',
+   amazonOnly:false, channelSplit:0.60},
+  {id:'battle',  name:'Battle Buckets',           code:'BB01',asin:'B0CJ9QRNHL',cogs:18.50,price:49.99,
+   onHand:300,   fbaStock:267,  fbaInbound:0,    onOrder:0, chinaWH:814,  boatToNJ:0,boatToNJeta:'',boatToFBA:0,boatToFBAeta:'',
+   amazonOnly:true,  channelSplit:1.00},
+  {id:'yardpong',name:'YardPong',                 code:'YP01',asin:'B0CZPF3278',cogs:18.50,price:49.99,
+   onHand:0,     fbaStock:386,  fbaInbound:330,  onOrder:0, chinaWH:400,  boatToNJ:0,boatToNJeta:'',boatToFBA:0,boatToFBAeta:'',
+   amazonOnly:true,  channelSplit:1.00},
+];
+
+// HISTORY: Amazon (verified) + Shopify (all-time export) combined
+// Amazon = B2C+B2B. Shopify = direct orders, excludes cancelled/refunded.
+// Note: BP02 H2O launched on Shopify Apr 2025; BP05/BP06 minimal Shopify presence.
+const SHOPIFY={
+  'bp01':{
+    '2022-04':93,'2022-05':407,'2022-06':503,'2022-07':494,'2022-08':368,
+    '2022-09':207,'2022-10':168,'2022-11':136,'2022-12':124,
+    '2023-01':55,'2023-02':61,'2023-03':122,'2023-04':278,'2023-05':436,
+    '2023-06':499,'2023-07':329,'2023-08':218,'2023-09':145,
+    '2023-10':107,'2023-11':108,'2023-12':152,
+    '2024-01':28,'2024-02':32,'2024-03':92,'2024-04':226,'2024-05':447,
+    '2024-06':405,'2024-07':194,'2024-08':102,'2024-09':46,
+    '2024-10':35,'2024-11':42,'2024-12':40,
+    '2025-01':9,'2025-02':3,'2025-03':56,'2025-04':351,'2025-05':794,
+    '2025-06':940,'2025-07':325,'2025-08':157,'2025-09':38,
+    '2025-10':36,'2025-11':41,'2025-12':65,
+    '2026-01':13,'2026-02':32,'2026-03':63,
+  },
+  'bp02':{
+    '2025-04':259,'2025-05':715,'2025-06':955,'2025-07':573,
+    '2025-08':262,'2025-09':61,'2025-10':18,'2025-11':10,'2025-12':21,
+    '2026-01':8,'2026-02':12,'2026-03':13,
+  },
+  'bp05':{
+    '2025-04':6,'2025-05':45,'2025-06':30,'2025-07':11,
+    '2025-11':8,'2025-12':10,'2026-01':2,'2026-02':2,'2026-03':4,
+  },
+  'bp06':{
+    '2025-11':1,'2025-12':9,'2026-01':1,'2026-02':2,'2026-03':3,
+  },
+};
+
+// Merge Amazon + Shopify into combined HISTORY
+const AMAZON={
+  'bp01':{
+    '2024-03':287,'2024-04':629,'2024-05':928,'2024-06':778,'2024-07':625,
+    '2024-08':346,'2024-09':213,'2024-10':199,'2024-11':118,'2024-12':163,
+    '2025-01':120,'2025-02':184,'2025-03':337,'2025-04':608,'2025-05':922,
+    '2025-06':1227,'2025-07':660,'2025-08':417,'2025-09':198,
+    '2025-10':204,'2025-11':246,'2025-12':394,
+    '2026-01':122,'2026-02':120,'2026-03':135,
+  },
+  'battle':{
+    '2024-03':161,'2024-04':339,'2024-05':480,'2024-06':373,'2024-07':295,
+    '2024-08':126,'2024-09':135,'2024-10':104,'2024-11':64,'2024-12':75,
+    '2025-01':62,'2025-02':80,'2025-03':179,'2025-04':355,'2025-05':395,
+    '2025-06':591,'2025-07':367,'2025-08':141,'2025-09':95,
+    '2025-10':76,'2025-11':35,'2025-12':76,
+    '2026-01':53,'2026-02':52,'2026-03':38,
+  },
+  'yardpong':{
+    '2024-04':33,'2024-06':266,'2024-07':397,'2024-08':282,
+    '2024-09':190,'2024-10':134,'2024-11':92,'2024-12':90,
+    '2025-01':47,'2025-02':57,'2025-03':121,'2025-04':206,'2025-05':335,
+    '2025-06':546,'2025-07':304,'2025-08':156,'2025-09':156,
+    '2025-10':128,'2025-11':79,'2025-12':139,
+    '2026-01':111,'2026-02':120,'2026-03':82,
+  },
+  'bp02':{
+    '2025-04':94,'2025-05':119,'2025-06':3,'2025-07':56,
+    '2025-08':108,'2025-09':15,'2025-10':21,'2025-11':26,'2025-12':38,
+    '2026-01':7,'2026-02':9,'2026-03':11,
+  },
+  'bp05':{
+    '2025-04':9,'2025-05':13,'2025-06':58,'2025-07':21,
+    '2025-09':0,'2025-10':0,'2025-11':10,'2025-12':123,
+    '2026-01':18,'2026-02':52,'2026-03':39,
+  },
+  'bp06':{
+    '2025-02':5,'2025-03':21,'2025-04':58,'2025-05':31,
+    '2025-06':0,'2025-07':0,'2025-08':26,'2025-09':22,
+    '2025-10':26,'2025-11':9,'2025-12':24,
+    '2026-01':23,'2026-02':35,'2026-03':16,
+  },
+};
+
+// Combine all channels
+let HISTORY={};
+const allSkus=[...new Set([...Object.keys(AMAZON),...Object.keys(SHOPIFY)])];
+for(const sku of allSkus){
+  HISTORY[sku]={};
+  const amz=AMAZON[sku]||{};
+  const shp=SHOPIFY[sku]||{};
+  const months=new Set([...Object.keys(amz),...Object.keys(shp)]);
+  for(const m of months){
+    HISTORY[sku][m]=(amz[m]||0)+(shp[m]||0);
+  }
+}
+
+let POS=[];
+let dataLoaded={shopify:true,amazon:true};
+
+// ── FORECASTING ENGINE ──────────────────────────────────────────────────────
+function mk(y,m){return `${y}-${String(m+1).padStart(2,'0')}`;}
+// For bp02 H2O: Amazon history is stockout-distorted (ran out repeatedly in 2025).
+// Use Shopify as the true demand signal for forecasting.
+const SHOPIFY_ONLY_FORECAST=['bp02'];
+
+function hist(id){
+  if(SHOPIFY_ONLY_FORECAST.includes(id)) return SHOPIFY[id]||{};
+  return HISTORY[id]||{};
+}
+
+function histCombined(id){return HISTORY[id]||{};} // for display/charts only
+
+function yearTotal(id,y){
+  const h=hist(id); let t=0;
+  for(let m=0;m<12;m++) t+=h[mk(y,m)]||0;
+  return t;
+}
+
+function yoyGrowth(id){
+  if(CFG.yoyOverride!==null) return CFG.yoyOverride;
+  const now=new Date(), yr=now.getFullYear();
+  const t1=yearTotal(id,yr-2), t2=yearTotal(id,yr-1);
+  if(!t1||!t2) return 0.10;
+  return Math.min(Math.max((t2-t1)/t1,-0.30),1.00);
+}
+
+function projectMonth(id,y,m){
+  const h=hist(id);
+  const ly=h[mk(y-1,m)]||0;
+  if(ly) return Math.round(ly*(1+yoyGrowth(id)));
+  const ly2=h[mk(y-2,m)]||0;
+  if(ly2) return Math.round(ly2*Math.pow(1+yoyGrowth(id),2));
+  return null;
+}
+
+function projectDays(id,days){
+  const now=new Date(); let total=0,hasData=false;
+  let cursor=new Date(now);
+  const end=new Date(now); end.setDate(end.getDate()+days);
+  while(cursor<end){
+    const y=cursor.getFullYear(),m=cursor.getMonth();
+    const dim=new Date(y,m+1,0).getDate();
+    const frac=Math.min((end-cursor)/86400000,dim-cursor.getDate()+1);
+    const mu=projectMonth(id,y,m);
+    if(mu!==null){total+=mu*(frac/dim);hasData=true;}
+    cursor=new Date(y,m+1,1);
+  }
+  return hasData?Math.round(total):null;
+}
+
+function flatVel(sku){
+  const h=hist(sku.id); const now=new Date(); let t=0,n=0;
+  for(let i=1;i<=3;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const v=h[mk(d.getFullYear(),d.getMonth())];
+    if(v){t+=v;n++;}
+  }
+  return n?t/(n*30.5):0;
+}
+
+function totalAvailable(sku){
+  // FBA stock + FBA inbound = 100% (already in Amazon's system)
+  // Boats to NJ/FBA = 100% (committed ETA)
+  // China WH = 50% (paid but no ship date committed)
+  return (sku.fbaStock||0) + (sku.fbaInbound||0) + sku.onHand + sku.boatToNJ + (sku.chinaWH||0);
+}
+function fullPipeline(sku){
+  return (sku.fbaStock||0) + (sku.fbaInbound||0) + sku.onHand + sku.boatToNJ + (sku.onOrder||0) + (sku.chinaWH||0);
+}
+function daysOfStock(sku){
+  const stock=totalAvailable(sku);
+  const hasHist=Object.keys(hist(sku.id)).length>0;
+  if(!hasHist){
+    const v=flatVel(sku);
+    return {days:v>0?Math.round(stock/v):999,projected:false};
+  }
+  // binary search: how many days until projected demand exceeds stock
+  let lo=0,hi=500;
+  for(let i=0;i<30;i++){
+    const mid=Math.round((lo+hi)/2);
+    const d=projectDays(sku.id,mid);
+    if(d===null){const v=flatVel(sku);return {days:v>0?Math.round(stock/v):999,projected:false};}
+    if(d<stock)lo=mid; else hi=mid;
+  }
+  return{days:Math.round((lo+hi)/2),projected:true};
+}
+
+function effectiveLeadDays(sku){
+  // If China warehouse stock can cover demand during the short ship window, use chinaLeadDays
+  // Otherwise use full supplier lead time (production + shipping)
+  const chinaStock=sku.chinaWH||0;
+  if(chinaStock>0){
+    const demandDuringChina=projectDays(sku.id,CFG.chinaLeadDays)||0;
+    if(chinaStock>=demandDuringChina) return CFG.chinaLeadDays;
+  }
+  return CFG.leadDays;
+}
+function reorderQty(sku){
+  const lead=effectiveLeadDays(sku);
+  const needed=projectDays(sku.id,lead+CFG.targetCoverDays+CFG.safetyDays);
+  if(needed===null) return null;
+  return Math.max(0,needed-totalAvailable(sku));
+}
+function channelBreakdown(sku,qty){
+  const amzFrac=sku.channelSplit||0;
+  const fba=Math.round(qty*amzFrac);
+  const nj=qty-fba;
+  return{fba,nj,amzPct:Math.round(amzFrac*100),njPct:Math.round((1-amzFrac)*100)};
+}
+function daysUntilOrder(sku){
+  const {days}=daysOfStock(sku);
+  return Math.max(0,days-effectiveLeadDays(sku)-CFG.safetyDays);
+}
+
+function statusFor(sku){
+  if(!Object.keys(hist(sku.id)).length) return 'nodata';
+  const {days}=daysOfStock(sku);
+  if(days<CFG.leadDays) return 'danger';
+  if(days<CFG.leadDays+CFG.safetyDays+14) return 'warn';
+  return 'ok';
+}
+
+function chartData(id){
+  const now=new Date(); const pts=[];
+  for(let i=-11;i<=6;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()+i,1);
+    const y=d.getFullYear(),m=d.getMonth(),key=mk(y,m);
+    const actual=histCombined(id)?histCombined(id)[key]||null:null;
+    const proj=projectMonth(id,y,m);
+    const isFut=i>0,isCur=i===0;
+    const lbl=d.toLocaleDateString('en-US',{month:'short'}).slice(0,3)+(m===0||i===-11||i===6?`'${String(y).slice(2)}`:'');
+    pts.push({lbl,actual:isFut?null:actual,proj:isFut||isCur?proj:null,isFut,isCur});
+  }
+  return pts;
+}
+
+// ── CSV PARSERS ─────────────────────────────────────────────────────────────
+function csvLine(l){
+  const r=[];let c='',q=false;
+  for(let i=0;i<l.length;i++){
+    if(l[i]==='"')q=!q;
+    else if(l[i]===','&&!q){r.push(c);c='';}
+    else c+=l[i];
+  }
+  r.push(c);return r;
+}
+
+function parseShopify(text){
+  const lines=text.trim().split('\n');
+  const hdr=csvLine(lines[0]).map(h=>h.trim().toLowerCase());
+  const si=hdr.indexOf('lineitem sku'),qi=hdr.indexOf('lineitem quantity'),di=hdr.indexOf('created at');
+  if(si===-1||qi===-1||di===-1){alert('Shopify CSV missing columns. Export from Orders \u2192 Export.');return false;}
+  SKUS.forEach(s=>{if(!HISTORY[s.id])HISTORY[s.id]={};});
+  let rows=0;
+  for(let i=1;i<lines.length;i++){
+    if(!lines[i].trim())continue;
+    const c=csvLine(lines[i]);
+    const d=new Date(c[di]||'');if(isNaN(d))continue;
+    const key=mk(d.getFullYear(),d.getMonth());
+    const sc=(c[si]||'').trim().toUpperCase();
+    const qty=parseInt(c[qi])||0;
+    if(!sc||!qty)continue;
+    SKUS.forEach(s=>{
+      if(sc===s.code||sc.startsWith(s.code)){
+        HISTORY[s.id][key]=(HISTORY[s.id][key]||0)+qty;rows++;
+      }
+    });
+  }
+  return rows>0;
+}
+
+function parseAmazon(text){
+  const lines=text.trim().split('\n');
+  const delim=lines[0].includes('\t')?'\t':',';
+  const sp=l=>delim==='\t'?l.split('\t').map(c=>c.trim().replace(/^"|"$/g,'')):csvLine(l);
+  const hdr=sp(lines[0]).map(h=>h.toLowerCase().trim());
+  const di=hdr.findIndex(h=>h==='date'||h.startsWith('date'));
+  const ai=hdr.findIndex(h=>h.includes('asin'));
+  const ski=hdr.findIndex(h=>h==='sku'||h.includes('seller sku'));
+  const ui=hdr.findIndex(h=>h.includes('units ordered')||h.includes('units sold'));
+  if(ui===-1){alert('Could not find "Units Ordered". Use the Detail Page Sales and Traffic by Child Item report.');return false;}
+  SKUS.forEach(s=>{if(!HISTORY[s.id])HISTORY[s.id]={};});
+  let rows=0;
+  for(let i=1;i<lines.length;i++){
+    if(!lines[i].trim())continue;
+    const c=sp(lines[i]);
+    const d=new Date(c[di]||'');if(isNaN(d))continue;
+    const key=mk(d.getFullYear(),d.getMonth());
+    const asin=(ai>=0?c[ai]:'').trim();
+    const sku=(ski>=0?c[ski]:'').trim().toUpperCase();
+    const units=parseInt((c[ui]||'').replace(/[^0-9]/g,''))||0;
+    if(!units)continue;
+    SKUS.forEach(s=>{
+      if((asin&&asin===s.asin&&s.asin)||(sku&&(sku===s.code||sku.startsWith(s.code)))){
+        HISTORY[s.id][key]=(HISTORY[s.id][key]||0)+units;rows++;
+      }
+    });
+  }
+  return rows>0;
+}
+
+// ── HELPERS ─────────────────────────────────────────────────────────────────
+function fd(d){return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function skuById(id){return SKUS.find(s=>s.id===id)||{};}
+
+// ── RENDER ───────────────────────────────────────────────────────────────────
+function renderAlerts(){
+  document.getElementById('alerts').innerHTML=SKUS
+    .filter(s=>statusFor(s)==='danger')
+    .map(s=>{const{days}=daysOfStock(s);return`<div class="alert-strip danger">\u26a0 ${s.name}: ${days} projected days of stock \u2014 below ${CFG.leadDays}-day lead time. Order now.</div>`;})
+    .join('');
+}
+
+function renderMetrics(){
+  const needsAction=SKUS.filter(s=>['danger','warn'].includes(statusFor(s))).length;
+  const critical=SKUS.filter(s=>statusFor(s)==='danger').length;
+  const totalNJ=SKUS.reduce((a,s)=>a+s.onHand,0);
+  const totalPipeline=SKUS.reduce((a,s)=>a+(s.fbaInbound||0)+(s.chinaWH||0)+s.boatToNJ+(s.onOrder||0),0);
+  const totalFBA=SKUS.reduce((a,s)=>a+(s.fbaStock||0),0);
+  const openPO=POS.reduce((a,p)=>a+p.units*p.cogs,0);
+  const hasData=SKUS.some(s=>Object.keys(hist(s.id)).length>0);
+  const proj30=hasData?SKUS.reduce((a,s)=>{const p=projectDays(s.id,30);return a+(p||0);},0):null;
+  const vc=critical>0?'color:var(--red)':needsAction>0?'color:var(--amber)':'color:var(--green)';
+  document.getElementById('metrics').innerHTML=`
+    <div class="metric"><div class="lbl">Action needed</div><div class="val" style="${vc}">${needsAction}</div><div class="hint">${critical} critical \u00b7 ${SKUS.length} SKUs</div></div>
+    <div class="metric"><div class="lbl">FBA available</div><div class="val">${totalFBA.toLocaleString()}</div><div class="hint">across all SKUs</div></div>
+    <div class="metric"><div class="lbl">NJ on hand</div><div class="val">${totalNJ.toLocaleString()}</div><div class="hint">units all SKUs</div></div>
+    <div class="metric"><div class="lbl">In pipeline</div><div class="val">${totalPipeline.toLocaleString()}</div><div class="hint">China WH + boats</div></div>
+    <div class="metric"><div class="lbl">Proj. next 30d</div><div class="val">${proj30!==null?proj30.toLocaleString():'—'}</div><div class="hint">units all channels</div></div>
+    <div class="metric"><div class="lbl">Open PO value</div><div class="val">$${openPO.toLocaleString(undefined,{maximumFractionDigits:0})}</div><div class="hint">${POS.length} orders</div></div>`;
+}
+
+
+function renderProjBox(sku,rq,dto,orderBy,arrivalDate,split){
+  if(rq===null||rq===undefined) return '<div class="proj-box"><div class="proj-text" style="color:var(--text2)">Import sales history for reorder quantity recommendations</div></div>';
+  if(rq===0) return '<div class="proj-box"><div class="proj-text" style="color:var(--green)">&#10003; Stock sufficient through projected demand window</div></div>';
+  const cost=(rq*sku.cogs).toLocaleString(undefined,{maximumFractionDigits:0});
+  const orderWhen=dto<=0?'now':fd(orderBy);
+  let splitHtml='';
+  if(split){
+    let fbaBox='',njBox='';
+    if(split.fba>0){
+      const lbl='Send to FBA';
+      fbaBox='<div style="background:var(--amber-bg);color:var(--amber-text);border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;text-align:center">'
+        +'<div style="font-size:17px;font-family:var(--mono);line-height:1.2">'+split.fba.toLocaleString()+'</div>'
+        +'<div style="font-weight:400;font-size:10px;margin-top:2px">→ '+lbl+' ('+split.amzPct+'%)</div>'
+        +'</div>';
+    }
+    if(split.nj>0&&!sku.amazonOnly){
+      njBox='<div style="background:var(--blue-bg);color:var(--blue-text);border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;text-align:center">'
+        +'<div style="font-size:17px;font-family:var(--mono);line-height:1.2">'+split.nj.toLocaleString()+'</div>'
+        +'<div style="font-weight:400;font-size:10px;margin-top:2px">→ Send to NJ WH ('+split.njPct+'%)</div>'
+        +'</div>';
+    }
+    splitHtml='<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">'
+      +fbaBox+njBox
+      +'<div style="font-size:10px;color:var(--text3)">based on 2025 channel mix · adjust in Settings</div>'
+      +'</div>';
+  }
+  return '<div class="proj-box" style="align-items:flex-start">'
+    +'<div style="flex:1;min-width:0">'
+    +'<div class="proj-text">'
+    +'<div>Order <strong>'+rq.toLocaleString()+' units</strong> by <strong>'+orderWhen+'</strong> · Est. cost <strong>$'+cost+'</strong></div>'
+    +'<div class="proj-sub">Arrives ~'+fd(arrivalDate)+' · covers '+CFG.targetCoverDays+' days of projected demand</div>'
+    +'</div>'
+    +splitHtml
+    +'</div>'
+    +'<button class="btn" data-skuid="'+sku.id+'" data-qty="'+rq+'" onclick="prefillPO(this.dataset.skuid,+this.dataset.qty)" style="align-self:flex-start;margin-top:2px">Log PO \u2192</button>'
+    +'</div>';
+}
+
+function renderForecast(){
+  const hasData=SKUS.some(s=>Object.keys(hist(s.id)).length>0);
+  if(!hasData){
+    document.getElementById('forecast').innerHTML=`
+      <div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--rlg);padding:48px;text-align:center">
+        <div style="font-size:36px;margin-bottom:14px">&#128202;</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:8px">No sales history loaded yet</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:24px;max-width:420px;margin-left:auto;margin-right:auto">Import 2 years of Shopify and Amazon data to unlock seasonal forecasting, YoY trend analysis, and forward-looking reorder recommendations.</div>
+        <button class="btn primary" onclick="showTab('import',document.querySelectorAll('.tabs button')[1])">Go to Import \u2192</button>
+      </div>`;
+    return;
+  }
+
+  const cards=SKUS.map(sku=>{
+    const st=statusFor(sku);
+    const{days,projected}=daysOfStock(sku);
+    const rq=reorderQty(sku);
+    const dto=daysUntilOrder(sku);
+    const orderBy=addDays(new Date(),dto);
+    const arrivalDate=addDays(orderBy,effectiveLeadDays(sku));
+    const proj6=projectDays(sku.id,180);
+    const growth=Math.round(yoyGrowth(sku.id)*100);
+    const now=new Date();
+    const lmKey=mk(now.getFullYear(),now.getMonth()-1);
+    const lmTotal=hist(sku.id)[lmKey]||0;
+    const stLabel={ok:`Order by ${fd(orderBy)}`,warn:`Order soon — ${fd(orderBy)}`,danger:'Order immediately',nodata:'Import sales data'}[st];
+    const split=rq?channelBreakdown(sku,rq):null;
+
+    // Chart
+    const pts=chartData(sku.id);
+    const maxV=Math.max(...pts.map(p=>Math.max(p.actual||0,p.proj||0)),1);
+    const bars=pts.map(p=>{
+      const av=p.actual,pv=p.proj;
+      const cls=p.isFut?'proj':p.isCur?'curr':'hist';
+      const dispV=p.isFut?pv:av;
+      const h=Math.round(((dispV||0)/maxV)*82);
+      return`<div class="month-col"><div class="bar-wrap"><div class="bar ${cls}" style="height:${Math.max(dispV?2:0,h)}px" title="${p.lbl}: ${dispV!==null?dispV:'no data'}"></div></div><div class="mlbl">${p.lbl}</div></div>`;
+    }).join('');
+
+    return`
+    <div class="sku-card s-${st}">
+      <div class="sku-body">
+        <div class="sku-hdr">
+          <div><div class="sku-name">${sku.name}</div><div class="sku-code">${sku.code} \u00b7 ${sku.asin||'set ASIN in Settings'}${sku.amazonOnly?' \u00b7 <span style="color:var(--amber-text);background:var(--amber-bg);padding:1px 6px;border-radius:4px;font-size:10px">Amazon FBA only</span>':''}${sku.shopifyDemand?' \u00b7 <span style="color:#7c6f3e;background:#fef9e7;padding:1px 6px;border-radius:4px;font-size:10px" title="Amazon history suppressed by stockouts in 2025 — forecast based on Shopify demand">⚠ forecast uses Shopify demand</span>':''}</div></div>
+          <span class="badge ${st}">${stLabel}</span>
+        </div>
+        <div class="stat-row">
+          <div class="stat"><div class="sv">${(sku.fbaStock||0)>0?(sku.fbaStock||0).toLocaleString():'—'}</div><div class="sl">FBA avail</div></div>
+          <div class="stat"><div class="sv">${(sku.fbaInbound||0)>0?(sku.fbaInbound||0).toLocaleString():'—'}</div><div class="sl">FBA inbound</div></div>
+          ${sku.amazonOnly
+            ?`<div class="stat"><div class="sv">${(sku.chinaWH||0)>0?(sku.chinaWH||0).toLocaleString():'—'}</div><div class="sl">China WH</div></div>`
+            :`<div class="stat"><div class="sv">${(sku.onHand||0)>0?(sku.onHand||0).toLocaleString():'—'}</div><div class="sl">NJ on hand</div></div>`}
+          <div class="stat"><div class="sv">${(sku.chinaWH||0)>0?(sku.chinaWH||0).toLocaleString():'—'}</div><div class="sl">China WH</div></div>
+          <div class="stat"><div class="sv">${(sku.boatToNJ||0)>0?(sku.boatToNJ||0).toLocaleString():'—'}</div><div class="sl">To NJ</div></div>
+          <div class="stat"><div class="sv" style="${st==='danger'?'color:var(--red)':st==='warn'?'color:var(--amber)':''}">${days>=400?'400+':days}</div><div class="sl">Days cover${projected?' proj':''}</div></div>
+          <div class="stat"><div class="sv">${growth>=0?'+':''}${growth}%</div><div class="sl">YoY</div></div>
+        </div>
+        <div class="chart-section">
+          <div class="chart-label">
+            <span>12-month history + 6-month projection</span>
+            <div class="legend">
+              <div class="legend-item"><div class="legend-dot" style="background:var(--bg4)"></div>Actual</div>
+              <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>This month</div>
+              <div class="legend-item"><div class="legend-dot" style="background:var(--blue);opacity:.75"></div>Projected</div>
+            </div>
+          </div>
+          <div class="month-bars">${bars}</div>
+        </div>
+        ${renderProjBox(sku,rq,dto,orderBy,arrivalDate,split)}
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('forecast').innerHTML=`<div class="sku-grid">${cards}</div>`;
+}
+
+function renderImport(){
+  const sL=dataLoaded.shopify, aL=dataLoaded.amazon;
+  const dataRange=SKUS.map(s=>{
+    const keys=Object.keys(hist(s.id)).sort();
+    return keys.length?`${s.code}: ${keys[0]}\u2192${keys[keys.length-1]} (${keys.length}mo)`:null;
+  }).filter(Boolean).join(' \u00b7 ');
+
+  document.getElementById('import').innerHTML=`
+  <div class="instr">
+    <h3>Exact reports to pull \u2014 2 years of data recommended</h3>
+    <div class="step"><div class="step-n">1</div><div class="step-t"><strong>Shopify orders:</strong> Orders \u2192 Export \u2192 "All orders" \u2192 Date range: Jan 1, 2024 to today \u2192 Format: "CSV for Excel". The export has one row per line item. Key columns: <code>Created at</code>, <code>Lineitem sku</code> (must contain BP01/BP02/BP05/BP06), <code>Lineitem quantity</code>.</div></div>
+    <div class="step"><div class="step-n">2</div><div class="step-t"><strong>Amazon:</strong> Seller Central \u2192 Reports \u2192 Business Reports \u2192 left sidebar: <strong>"Detail Page Sales and Traffic by Child Item"</strong> \u2192 date range Jan 1 2024 \u2192 today \u2192 Download. This has one row per ASIN per day with <code>Units Ordered</code>. Enter your ASINs in Settings so they match correctly.</div></div>
+    <div class="step"><div class="step-n">3</div><div class="step-t">The engine builds a month-by-month curve, calculates your YoY growth rate per SKU, and projects the next 6 months. Seasonal peaks (summer) automatically drive higher reorder quantities. Re-import monthly to keep projections sharp.</div></div>
+    <div class="step"><div class="step-n">4</div><div class="step-t"><strong>If CSV matching fails:</strong> check that your Shopify product variants have <code>BP01</code>, <code>BP02</code> etc. in the SKU field (Products \u2192 variant \u2192 SKU). For Amazon, enter ASINs in Settings. Or use manual entry below as a fallback.</div></div>
+  </div>
+  <div class="import-grid">
+    <div class="drop-zone ${sL?'loaded':''}" id="s-drop">
+      <input type="file" accept=".csv" onchange="handleFile(event,'shopify')" />
+      <div class="drop-icon">&#128717;</div>
+      <div class="drop-title">Shopify Orders CSV</div>
+      <div class="drop-sub">2 years \u00b7 Orders \u2192 Export</div>
+      <div class="drop-hint">Created at \u00b7 Lineitem sku \u00b7 Lineitem quantity</div>
+      <div class="drop-status">${sL?'\u2713 '+dataLoaded.shopifyFile:''}</div>
+    </div>
+    <div class="drop-zone ${aL?'loaded':''}" id="a-drop">
+      <input type="file" accept=".csv,.tsv,.txt" onchange="handleFile(event,'amazon')" />
+      <div class="drop-icon">&#128230;</div>
+      <div class="drop-title">Amazon Business Report</div>
+      <div class="drop-sub">2 years \u00b7 Detail Page Sales by Child Item</div>
+      <div class="drop-hint">Date \u00b7 ASIN \u00b7 Units Ordered</div>
+      <div class="drop-status">${aL?'\u2713 '+dataLoaded.amazonFile:''}</div>
+    </div>
+  </div>
+  ${dataRange?`<div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:16px;padding:9px 13px;background:var(--bg2);border-radius:var(--r);border:0.5px solid var(--border)">${dataRange}</div>`:''}
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">Manual monthly entry</div><div style="font-size:12px;color:var(--text2)">Fallback if CSV import doesn't match</div></div>
+    <div style="overflow-x:auto"><table class="manual-table">
+      <thead><tr><th>Month</th>${SKUS.map(s=>`<th>${s.code}</th>`).join('')}</tr></thead>
+      <tbody id="manual-body"></tbody>
+    </table></div>
+    <div style="padding:12px 16px;border-top:0.5px solid var(--border);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn primary" onclick="saveManual()">Save manual data</button>
+      <div style="font-size:12px;color:var(--text2)">Enter combined (Shopify + Amazon) units sold per SKU per month.</div>
+    </div>
+  </div>`;
+
+  // Build 24-month manual entry grid
+  const now=new Date(); let rows='';
+  for(let i=23;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const key=mk(d.getFullYear(),d.getMonth());
+    const lbl=d.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+    rows+=`<tr><td style="font-family:var(--mono);font-size:11px;white-space:nowrap">${lbl}</td>${SKUS.map(s=>`<td><input type="number" data-key="${key}" data-sku="${s.id}" value="${hist(s.id)[key]||''}" placeholder="0"/></td>`).join('')}</tr>`;
+  }
+  document.getElementById('manual-body').innerHTML=rows;
+
+  // Drag events
+  [['s-drop','shopify'],['a-drop','amazon']].forEach(([id,ch])=>{
+    const el=document.getElementById(id);if(!el)return;
+    el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});
+    el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
+    el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('drag-over');if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0],ch);});
+  });
+}
+
+function saveManual(){
+  document.querySelectorAll('#manual-body input').forEach(inp=>{
+    const key=inp.dataset.key,id=inp.dataset.sku,v=parseInt(inp.value)||0;
+    if(!HISTORY[id])HISTORY[id]={};
+    if(v>0)HISTORY[id][key]=v; else delete HISTORY[id][key];
+  });
+  updatePill();renderAll();
+}
+
+function handleFile(e,ch){const f=e.target.files[0];if(f)processFile(f,ch);}
+function processFile(file,ch){
+  const r=new FileReader();
+  r.onload=e=>{
+    const ok=ch==='shopify'?parseShopify(e.target.result):parseAmazon(e.target.result);
+    if(ok){dataLoaded[ch]=true;dataLoaded[ch+'File']=file.name;}
+    else alert(`No matching SKUs found. Check that your Shopify SKU field contains BP01/BP02/BP05/BP06, or set ASINs in Settings for Amazon matching.`);
+    updatePill();renderAll();
+  };
+  r.readAsText(file);
+}
+
+function updatePill(){
+  const el=document.getElementById('data-pill');
+  const has=SKUS.some(s=>Object.keys(hist(s.id)).length>0);
+  if(has){
+    el.className='data-pill live';
+    const src=[];
+    if(dataLoaded.amazon)src.push('Amazon');
+    if(dataLoaded.shopify)src.push('Shopify');
+    if(!src.length)src.push('Manual');
+    el.textContent=src.join(' + ')+' \u00b7 '+new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  }else{el.className='data-pill';el.textContent='No sales data loaded';}
+}
+
+let prePO={};
+function prefillPO(id,qty){prePO={id,qty};showTab('pos',document.querySelectorAll('.tabs button')[2]);}
+
+function renderPOs(){
+  const today=new Date().toISOString().split('T')[0];
+  const etaDef=addDays(new Date(),CFG.leadDays).toISOString().split('T')[0];
+  const pSkuId=prePO.id||SKUS[0].id;
+  const pSku=skuById(pSkuId);
+  const rows=POS.length===0?`<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px">No purchase orders logged yet.</td></tr>`:
+    POS.map(po=>{
+      const cost=po.units*po.cogs;
+      const sc=po.status==='received'?'ok':po.status==='in transit'?'warn':'info';
+      return`<tr><td style="font-weight:600;font-family:var(--mono)">${po.id}</td><td>${skuById(po.skuId).name||po.skuId}</td><td style="font-family:var(--mono)">${po.units.toLocaleString()}</td><td style="font-family:var(--mono)">$${po.cogs.toFixed(2)}</td><td style="font-family:var(--mono)">$${cost.toLocaleString(undefined,{maximumFractionDigits:0})}</td><td>${fd(po.orderDate)}</td><td>${fd(po.eta)}</td><td><span class="badge ${sc}">${po.status}</span></td></tr>`;
+    }).join('');
+  const total=POS.reduce((a,p)=>a+p.units*p.cogs,0);
+  document.getElementById('pos').innerHTML=`
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">Purchase orders</div><div style="font-size:12px;color:var(--text2);font-family:var(--mono)">Committed: $${total.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+    <div style="overflow-x:auto"><table class="dt"><thead><tr><th>PO #</th><th>SKU</th><th>Units</th><th>COGS</th><th>Total</th><th>Order date</th><th>ETA</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="po-form">
+      <h4>Log new purchase order</h4>
+      <div class="form-row">
+        <div class="form-group"><label>SKU</label><select id="po-sku">${SKUS.map(s=>`<option value="${s.id}"${s.id===pSkuId?' selected':''}>${s.name}</option>`).join('')}</select></div>
+        <div class="form-group"><label>Units</label><input type="number" id="po-units" value="${prePO.qty||''}" placeholder="500"/></div>
+        <div class="form-group"><label>Unit COGS ($)</label><input type="number" id="po-cogs" value="${pSku.cogs||''}" step="0.01"/></div>
+        <div class="form-group"><label>Order date</label><input type="date" id="po-date" value="${today}"/></div>
+        <div class="form-group"><label>ETA (NJ arrival)</label><input type="date" id="po-eta" value="${etaDef}"/></div>
+        <div class="form-group"><label>Status</label><select id="po-status"><option value="confirmed">Confirmed</option><option value="in transit">In transit</option><option value="received">Received</option></select></div>
+      </div>
+      <button class="btn primary" onclick="addPO()">Add purchase order</button>
+    </div>
+  </div>`;
+  prePO={};
+}
+
+function addPO(){
+  const skuId=document.getElementById('po-sku').value;
+  const units=parseInt(document.getElementById('po-units').value)||0;
+  const cogs=parseFloat(document.getElementById('po-cogs').value)||0;
+  const orderDate=document.getElementById('po-date').value;
+  const eta=document.getElementById('po-eta').value;
+  const status=document.getElementById('po-status').value;
+  if(!units||!cogs){alert('Enter units and COGS.');return;}
+  POS.push({id:'PO-2026-'+String(POS.length+1).padStart(3,'0'),skuId,units,cogs,orderDate,eta,status});
+  if(status==='in transit'){const s=SKUS.find(x=>x.id===skuId);if(s){s.boatToNJ+=units;s.boatToNJeta=eta;}}
+  saveState();
+  renderAll();
+}
+
+function renderCashFlow(){
+  const now=new Date();
+  const months=Array.from({length:6},(_,i)=>{const d=new Date(now.getFullYear(),now.getMonth()+i,1);return{lbl:d.toLocaleDateString('en-US',{month:'long',year:'numeric'}),y:d.getFullYear(),m:d.getMonth()};});
+  const poByMo={};
+  POS.forEach(po=>{const d=new Date(po.orderDate);const k=mk(d.getFullYear(),d.getMonth());poByMo[k]=(poByMo[k]||0)+po.units*po.cogs;});
+  const cards=months.map(mo=>{
+    const k=mk(mo.y,mo.m);
+    const rev=SKUS.reduce((a,s)=>{const p=projectMonth(s.id,mo.y,mo.m);return a+(p?p*s.price:0);},0);
+    const out=poByMo[k]||0;
+    const net=rev-out;
+    const mx=Math.max(rev,out,1);
+    return`<div class="cf-card">
+      <div class="cf-mo">${mo.lbl}</div>
+      <div class="cf-row"><div class="cf-lbl">Revenue</div><div class="cf-bar-wrap"><div class="cf-fill rev" style="width:${rev?Math.round(rev/mx*100):0}%">${rev?'$'+(rev/1000).toFixed(0)+'k':''}</div></div></div>
+      <div class="cf-row"><div class="cf-lbl">PO payments</div><div class="cf-bar-wrap">${out?`<div class="cf-fill po" style="width:${Math.round(out/mx*100)}%">$${(out/1000).toFixed(0)}k</div>`:`<div style="padding:3px 8px;font-size:10px;color:var(--text3)">none</div>`}</div></div>
+      <div class="cf-net" style="color:${net>=0?'var(--green)':'var(--red)'}">${net>=0?'+':''}$${net.toLocaleString(undefined,{maximumFractionDigits:0})}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('cashflow').innerHTML=`
+    <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div><span style="font-size:12px;color:var(--text2)">Projected revenue (units \u00d7 sell price)</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#b06040"></div><span style="font-size:12px;color:var(--text2)">PO payments (by order date)</span></div>
+    </div>
+    <div class="cf-grid">${cards}</div>
+    <div class="note" style="padding:11px 14px;background:var(--bg2);border-radius:var(--r);border:0.5px solid var(--border)">Revenue is projected units \u00d7 selling price. Adjust for channel fees and returns. PO payments shown on order date \u2014 adjust for your supplier payment terms if different.</div>`;
+}
+
+function renderSettings(){
+  const el=document.getElementById('settings');
+  if(!el)return;
+
+  // Share link block
+  const shareUrl=BIN_ID?(window.location.href.split('?')[0]+'?bin='+BIN_ID):'';
+  let html='';
+  if(shareUrl){
+    html+='<div style="background:var(--blue-bg);color:var(--blue-text);border:0.5px solid var(--blue);border-radius:var(--r);padding:10px 14px;font-size:12px;margin-bottom:14px">'
+      +'<strong style="display:block;margin-bottom:4px">Team share link:</strong>'
+      +'<code style="font-size:11px;word-break:break-all">'+shareUrl+'</code>'
+      +'</div>';
+  } else {
+    html+='<div style="font-size:12px;color:var(--text2);margin-bottom:12px;padding:8px 12px;background:var(--bg3);border-radius:var(--r)">Make any change to generate your team share link.</div>';
+  }
+
+  // Top bar
+  html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">'
+    +'<div style="font-size:12px;color:var(--text2)">Changes auto-save and sync to your team</div>'
+    +'<button class="btn" onclick="resetDefaults()">Reset to defaults</button>'
+    +'</div>';
+
+  // Config card - use data attributes to avoid quote nesting
+  html+='<div class="set-grid"><div class="set-card"><h3>Ordering rules</h3>';
+  [
+    {f:'leadDays',lbl:'New order lead time (days)',val:CFG.leadDays,isYoy:false},
+    {f:'safetyDays',lbl:'Safety stock (days)',val:CFG.safetyDays,isYoy:false},
+    {f:'targetCoverDays',lbl:'Target cover (days)',val:CFG.targetCoverDays,isYoy:false},
+    {f:'chinaLeadDays',lbl:'China ship time (days)',val:CFG.chinaLeadDays,isYoy:false},
+    {f:'yoyOverride',lbl:'YoY override (%)',val:CFG.yoyOverride!==null?Math.round(CFG.yoyOverride*100):'',isYoy:true},
+  ].forEach(function(row){
+    html+='<div class="set-row"><label>'+row.lbl+'</label>'
+      +'<input type="number" data-f="'+row.f+'" value="'+row.val+'"'+(row.isYoy?' placeholder="auto"':'')+' onchange="'+
+      (row.isYoy?'updateCFG(this.dataset.f,this.value===""?null:+this.value/100)':'updateCFG(this.dataset.f,+this.value)')
+      +'"/></div>';
+  });
+  html+='<div class="note">New order lead time = production + shipping (~60 days). China ship time = existing China warehouse stock to NJ/FBA (~30 days). Leave YoY blank to auto-calculate from sales data.</div></div>';
+
+    // SKU cards - all onchange use data attributes to avoid quote issues
+  html+='<div class="set-card"><h3>SKU inventory &amp; pipeline</h3>';
+  SKUS.forEach(function(s){
+    var id=s.id;
+    var njPct=Math.round(100-(s.channelSplit||0)*100);
+    var amzPct=Math.round((s.channelSplit||0)*100);
+    html+='<div class="sku-set">'
+      +'<div class="sku-set-name">'+s.name+'</div>'
+      +'<div style="margin:4px 0 6px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">FBA</div>'
+      +'<div class="sku-set-r"><label>FBA available</label>'
+        +'<input type="number" data-id="'+id+'" data-f="fbaStock" value="'+(s.fbaStock||0)+'" style="width:80px" onchange="updateField(this.dataset.id,this.dataset.f,+this.value)"/>'
+      +'</div>'
+      +'<div class="sku-set-r"><label>FBA inbound</label>'
+        +'<input type="number" data-id="'+id+'" data-f="fbaInbound" value="'+(s.fbaInbound||0)+'" style="width:80px" onchange="updateField(this.dataset.id,this.dataset.f,+this.value)"/>'
+      +'</div>'
+      +'<div style="margin:6px 0 4px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">NJ warehouse</div>'
+      +'<div class="sku-set-r"><label>NJ on hand</label>'
+        +'<input type="number" data-id="'+id+'" data-f="onHand" value="'+s.onHand+'" style="width:80px" onchange="updateField(this.dataset.id,this.dataset.f,+this.value)"/>'
+      +'</div>'
+      +'<div class="sku-set-r"><label>China warehouse</label>'
+        +'<input type="number" data-id="'+id+'" data-f="chinaWH" value="'+(s.chinaWH||0)+'" style="width:80px" onchange="updateField(this.dataset.id,this.dataset.f,+this.value)"/>'
+      +'</div>'
+
+      +'<div style="margin:6px 0 4px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">In transit to NJ</div>'
+      +'<div class="sku-set-r"><label>On boat to NJ</label>'
+        +'<input type="number" data-id="'+id+'" data-f="boatToNJ" value="'+(s.boatToNJ||0)+'" style="width:80px" onchange="updateField(this.dataset.id,this.dataset.f,+this.value)"/>'
+      +'</div>'
+      +'<div class="sku-set-r"><label>NJ ETA</label>'
+        +'<input type="date" data-id="'+id+'" data-f="boatToNJeta" value="'+(s.boatToNJeta||'')+'" style="width:140px" onchange="updateField(this.dataset.id,this.dataset.f,this.value)"/>'
+      +'</div>'
+      +'<div style="margin:6px 0 4px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">Financials</div>'
+      +'<div class="sku-set-r"><label>COGS ($)</label>'
+        +'<input type="number" data-id="'+id+'" data-f="cogs" value="'+s.cogs+'" step="0.01" style="width:80px" onchange="updateField(this.dataset.id,this.dataset.f,+this.value)"/>'
+      +'</div>'
+      +'<div class="sku-set-r"><label>Amazon FBA %</label>'
+        +'<input type="number" data-id="'+id+'" data-f="channelSplit" value="'+amzPct+'" min="0" max="100" style="width:65px" onchange="updateField(this.dataset.id,this.dataset.f,Math.min(1,Math.max(0,+this.value/100)))"/>'
+        +'<span style="font-size:11px;color:var(--text2);margin-left:6px">'+njPct+'% NJ/Shopify</span>'
+      +'</div>'
+      +'</div>';
+  });
+  html+='</div></div>';
+
+    el.innerHTML=html;
+}
+
+function resetDefaults(){
+  if(!confirm('Reset all inventory to defaults? This clears shared data for everyone.'))return;
+  SKUS.forEach(function(s,i){Object.assign(s,{
+    onHand:SKU_DEFAULTS[i].onHand,fbaStock:SKU_DEFAULTS[i].fbaStock,
+    fbaInbound:SKU_DEFAULTS[i].fbaInbound,chinaWH:SKU_DEFAULTS[i].chinaWH,
+    boatToNJ:0,boatToNJeta:'',boatToFBA:0,boatToFBAeta:'',
+    channelSplit:SKU_DEFAULTS[i].channelSplit,cogs:SKU_DEFAULTS[i].cogs
+  });});
+  CFG={leadDays:70,safetyDays:21,targetCoverDays:150,yoyOverride:null};
+  POS=[];
+  try{localStorage.removeItem(LOCAL_KEY);localStorage.removeItem('bp_jsonbin_id');}catch(e){}
+  BIN_ID=null;
+  renderAll();
+}
+
+// China warehouse lead time affects when you need to ship from China (not when to reorder from supplier)
+// reorderQty already accounts for chinaWH at 100% — so recommendations reflect true position
+
+// ── SHARED SYNC via JSONBin ──────────────────────────────────────────────────
+const JSONBIN_KEY='$2a$10$V/4mx1w.JvNII6.qT6r3xubrQXX/Ikh99yTsE7oIzqZm.V/4DrUeu';
+const JSONBIN_URL='https://api.jsonbin.io/v3/b';
+const LOCAL_KEY='bp_inventory_v3';
+let BIN_ID=localStorage.getItem('bp_jsonbin_id')||null;
+let lastSavedAt=null;
+let syncTimer=null;
+let polling=null;
+
+function getState(){
+  return{
+    cfg:{...CFG},
+    skus:SKUS.map(s=>({
+      id:s.id,cogs:s.cogs,price:s.price,
+      onHand:s.onHand,fbaStock:s.fbaStock,fbaInbound:s.fbaInbound,
+      chinaWH:s.chinaWH,boatToNJ:s.boatToNJ,boatToNJeta:s.boatToNJeta,
+      channelSplit:s.channelSplit,onOrder:s.onOrder
+    })),
+    pos:POS,
+    savedAt:new Date().toISOString()
+  };
+}
+
+function applyState(state){
+  if(!state)return false;
+  if(state.cfg)Object.assign(CFG,state.cfg);
+  if(state.skus)state.skus.forEach(saved=>{
+    const s=SKUS.find(x=>x.id===saved.id);
+    if(s)Object.assign(s,saved);
+  });
+  if(state.pos)POS=state.pos;
+  if(state.savedAt)lastSavedAt=state.savedAt;
+  return true;
+}
+
+function setPill(status,detail){
+  const el=document.getElementById('sync-pill');
+  if(!el)return;
+  const styles={
+    synced:'border-color:var(--green);color:var(--green-text);background:var(--green-bg)',
+    saving:'border-color:var(--amber);color:var(--amber-text);background:var(--amber-bg)',
+    error:'border-color:var(--red);color:var(--red-text);background:var(--red-bg)',
+    local:'',
+  };
+  el.style.cssText=styles[status]||'';
+  el.textContent=detail;
+}
+
+async function saveToCloud(){
+  const state=getState();
+  localStorage.setItem(LOCAL_KEY,JSON.stringify(state));
+  setPill('saving','Saving...');
+  try{
+    let res,data;
+    if(!BIN_ID){
+      // Create new bin
+      res=await fetch(JSONBIN_URL,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_KEY,'X-Bin-Name':'BP Inventory','X-Bin-Private':'false'},
+        body:JSON.stringify(state)
+      });
+      data=await res.json();
+      BIN_ID=data.metadata&&data.metadata.id;
+      if(BIN_ID){localStorage.setItem('bp_jsonbin_id',BIN_ID);}
+    } else {
+      // Update existing bin
+      res=await fetch(JSONBIN_URL+'/'+BIN_ID,{
+        method:'PUT',
+        headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_KEY},
+        body:JSON.stringify(state)
+      });
+      data=await res.json();
+    }
+    lastSavedAt=state.savedAt;
+    const t=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    setPill('synced','✓ Synced · '+t);
+  }catch(e){
+    setPill('error','Cloud save failed — local only');
+  }
+}
+
+async function loadFromCloud(){
+  setPill('local','Connecting...');
+  // Check if teammates shared a bin ID via URL param
+  const params=new URLSearchParams(window.location.search);
+  const paramBin=params.get('bin');
+  if(paramBin&&!BIN_ID){BIN_ID=paramBin;localStorage.setItem('bp_jsonbin_id',paramBin);}
+
+  if(!BIN_ID){
+    // Try local storage fallback
+    try{
+      const raw=localStorage.getItem(LOCAL_KEY);
+      if(raw){applyState(JSON.parse(raw));setPill('local','Local data');}
+      else setPill('local','Default data');
+    }catch(e){setPill('local','Default data');}
+    return;
+  }
+  try{
+    const res=await fetch(JSONBIN_URL+'/'+BIN_ID+'/latest',{
+      headers:{'X-Master-Key':JSONBIN_KEY}
+    });
+    const data=await res.json();
+    if(data.record){
+      applyState(data.record);
+      const t=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      setPill('synced','✓ Synced · '+t);
+    }
+  }catch(e){
+    try{
+      const raw=localStorage.getItem(LOCAL_KEY);
+      if(raw)applyState(JSON.parse(raw));
+    }catch(e2){}
+    setPill('error','Cloud load failed — local data');
+  }
+}
+
+async function pollForUpdates(){
+  if(!BIN_ID)return;
+  try{
+    const res=await fetch(JSONBIN_URL+'/'+BIN_ID+'/latest',{
+      headers:{'X-Master-Key':JSONBIN_KEY}
+    });
+    const data=await res.json();
+    if(data.record&&data.record.savedAt&&data.record.savedAt!==lastSavedAt){
+      applyState(data.record);
+      renderAll();
+      const t=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      setPill('synced','✓ Updated · '+t);
+    }
+  }catch(e){}
+}
+
+function scheduleSave(){
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(saveToCloud,1000);
+}
+
+function updateField(id,field,val){
+  const s=SKUS.find(x=>x.id===id);
+  if(s){s[field]=val;scheduleSave();updateForecastIfVisible();}
+}
+function updateCFG(field,val){
+  CFG[field]=val;scheduleSave();updateForecastIfVisible();
+}
+function updateForecastIfVisible(){
+  renderAlerts();renderMetrics();
+  const a=document.querySelector('.section.active');
+  if(a&&a.id!=='settings'&&a.id!=='import')renderSection(a.id);
+}
+function showTab(id,btn){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(btn)btn.classList.add('active');
+  renderSection(id);
+}
+function renderSection(id){
+  if(id==='forecast')renderForecast();
+  else if(id==='import')renderImport();
+  else if(id==='pos')renderPOs();
+  else if(id==='cashflow')renderCashFlow();
+  else if(id==='settings')renderSettings();
+}
+function renderAll(){
+  renderAlerts();renderMetrics();
+  const a=document.querySelector('.section.active');
+  if(a)renderSection(a.id);
+}
+
+
+
+loadFromCloud().then(()=>{
+  renderAll();
+  polling=setInterval(pollForUpdates,30000);
+});
+</script>
+</body>
+</html>
